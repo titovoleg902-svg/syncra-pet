@@ -13,3 +13,6 @@ dist/
 
 # Локальные инструменты (cloudflared)
 .tools/
+
+# Служебные файлы Supabase CLI
+supabase/.temp/

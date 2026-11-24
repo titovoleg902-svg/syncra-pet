@@ -133,13 +133,15 @@ p {
   font-size: 16px;
 }
 
-.dog-pill__img {
-  width: 34px;
-  height: 34px;
+.dog-thumb {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
   border-radius: 50%;
   object-fit: cover;
   object-position: 30% 15%;
   background: var(--lavender-soft);
+  color: var(--lavender-strong);
 }
 
 .family-stack {
@@ -993,6 +995,341 @@ p {
   }
 }
 
+/* ---------- Этап 2: фото собаки, форма, загрузка ---------- */
+
+.pet--photo {
+  width: 210px;
+  height: 210px;
+  margin-bottom: 26px;
+}
+
+.pet__photo,
+.pet__placeholder {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 6px solid var(--card);
+  box-shadow: var(--shadow);
+  background: var(--lavender-soft);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pet__placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--lavender-strong);
+}
+
+.stage__soon {
+  position: absolute;
+  bottom: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--lavender-soft);
+  color: var(--lavender-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.empty {
+  padding: 18px 16px;
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.task--pending .check__box {
+  opacity: 0.55;
+}
+
+.tile__mood-icon {
+  display: grid;
+  place-items: center;
+  height: 64px;
+  color: var(--lavender-strong);
+}
+
+.week__dot--missed {
+  background: var(--warn-soft);
+}
+
+.members__row--btn {
+  width: 100%;
+  text-align: left;
+}
+
+.sheet__note {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.btn-primary:disabled {
+  opacity: 0.7;
+}
+
+.btn-ghost {
+  height: 48px;
+  border-radius: 16px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.center-screen {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 4px solid var(--lavender-soft);
+  border-top-color: var(--lavender-strong);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.add-dog {
+  padding-top: 8px;
+}
+
+.screen-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.screen-head__icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 16px;
+  background: var(--lavender-soft);
+  color: var(--lavender-strong);
+}
+
+.screen-head h1 {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.screen-head p {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.photo-box {
+  padding: 10px;
+  border-radius: 24px;
+  border: 2px dashed var(--lavender);
+  background: var(--card-tint);
+}
+
+.photo-box__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 26px 16px;
+  text-align: center;
+}
+
+.photo-box__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--lavender-strong);
+  margin-bottom: 4px;
+}
+
+.photo-box__title {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.photo-box__list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.photo-box__item,
+.photo-box__add {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.photo-box__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-box__remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(24, 23, 30, 0.6);
+  color: #fff;
+}
+
+.photo-box__add {
+  display: grid;
+  place-items: center;
+  background: var(--card);
+  color: var(--lavender-strong);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field__label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.field__row {
+  display: flex;
+  gap: 8px;
+}
+
+.field__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.field__input {
+  width: 100%;
+  min-width: 0;
+  height: 50px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* 16px — чтобы iPhone не увеличивал экран при вводе */
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  outline: none;
+}
+
+.field__input:focus {
+  border-color: var(--lavender);
+}
+
+.field__input::placeholder {
+  color: var(--muted);
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.field__input:disabled {
+  opacity: 0.6;
+}
+
+.field__input--area {
+  height: 88px;
+  padding: 12px 14px;
+  resize: none;
+}
+
+.chip-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  height: 50px;
+  padding: 0 16px;
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.chip-toggle.is-on {
+  background: var(--lavender);
+  color: #241f33;
+}
+
+.segmented--two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.checkline {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--card);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.checkline input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  flex: none;
+  accent-color: var(--green);
+}
+
+.form-error {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-weight: 700;
+  font-size: 14px;
+}
+
 /* Уважение к настройке «Уменьшить движение» */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1002,4 +1339,9 @@ p {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+:root[data-theme="dark"] .photo-box__icon,
+:root[data-theme="dark"] .photo-box__add {
+  background: var(--lavender-soft);
 }

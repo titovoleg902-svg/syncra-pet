@@ -1,22 +1,28 @@
 import { useState } from "react";
-import { ITEMS, MOOD_LABEL, RULES, type Mood } from "../demo";
+import { MOOD_LABEL, RULES, type Dog, type Mood } from "../rules";
 import { Icon } from "./Icon";
-import { MOOD_IMAGES } from "./PetStage";
+import { MOOD_ICON, MOOD_IMAGES } from "./PetStage";
+
+/** Стартовый набор: 3 аксессуара (ТЗ). Открываются за очки или другим условием. */
+const ITEMS = [
+  { id: "panama", name: "Панама", emoji: "👒", condition: "За 10 очков", unlockAtPoints: RULES.firstItemPoints as number },
+  { id: "bandana", name: "Бандана", emoji: "🧣", condition: "7 дней серии" },
+  { id: "party-hat", name: "Колпак", emoji: "🥳", condition: "Пригласить близкого" },
+] as { id: string; name: string; emoji: string; condition: string; unlockAtPoints?: number }[];
 
 type Tab = "items" | "emotions";
 
 interface Props {
-  dogName: string;
+  dog: Dog;
   points: number;
   mood: Mood;
   onToast: (text: string) => void;
 }
 
-/**
- * «Стиль» питомца: вещи, эмоции и закрытый раздел «Трюки».
- * На этапе 1 вещи только открываются за очки; «надеть» появится на вкладке «Питомец».
- */
-export function StyleCard({ dogName, points, mood, onToast }: Props) {
+const tasksWord = (n: number) => (n === 1 ? "задача" : n >= 2 && n <= 4 ? "задачи" : "задач");
+
+/** «Стиль» питомца: вещи, эмоции и закрытый раздел «Трюки». */
+export function StyleCard({ dog, points, mood, onToast }: Props) {
   const [tab, setTab] = useState<Tab>("items");
   const left = Math.max(0, RULES.firstItemPoints - points);
 
@@ -27,29 +33,18 @@ export function StyleCard({ dogName, points, mood, onToast }: Props) {
           <Icon name="gift" size={22} />
         </span>
         <div className="style__reward-text">
-          <div className="style__reward-title">
-            {left > 0 ? `Ещё ${left} ${left === 1 ? "задача" : left < 5 ? "задачи" : "задач"} до награды` : "Панама открыта!"}
-          </div>
+          <div className="style__reward-title">{left > 0 ? `Ещё ${left} ${tasksWord(left)} до награды` : "Панама открыта!"}</div>
           <div className="bar bar--thin">
-            <div
-              className="bar__fill bar__fill--lavender"
-              style={{ width: `${Math.min(100, (points / RULES.firstItemPoints) * 100)}%` }}
-            />
+            <div className="bar__fill bar__fill--lavender" style={{ width: `${Math.min(100, (points / RULES.firstItemPoints) * 100)}%` }} />
           </div>
         </div>
       </div>
 
-      <div className="tabs" role="tablist" aria-label={`Стиль ${dogName}`}>
+      <div className="tabs" role="tablist" aria-label={`Стиль: ${dog.name}`}>
         <button type="button" role="tab" aria-selected={tab === "items"} className="tabs__tab" onClick={() => setTab("items")}>
           Вещи
         </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "emotions"}
-          className="tabs__tab"
-          onClick={() => setTab("emotions")}
-        >
+        <button type="button" role="tab" aria-selected={tab === "emotions"} className="tabs__tab" onClick={() => setTab("emotions")}>
           Эмоции
         </button>
         <button
@@ -92,9 +87,15 @@ export function StyleCard({ dogName, points, mood, onToast }: Props) {
         </div>
       ) : (
         <div className="grid">
-          {(Object.keys(MOOD_IMAGES) as Mood[]).map((m) => (
+          {(Object.keys(MOOD_LABEL) as Mood[]).map((m) => (
             <div key={m} className={`tile tile--mood ${m === mood ? "tile--current" : ""}`}>
-              <img src={MOOD_IMAGES[m]} alt="" className="tile__img" />
+              {dog.cartoon ? (
+                <img src={MOOD_IMAGES[m]} alt="" className="tile__img" />
+              ) : (
+                <span className="tile__mood-icon">
+                  <Icon name={MOOD_ICON[m]} size={40} />
+                </span>
+              )}
               <span className="tile__name">{MOOD_LABEL[m]}</span>
               {m === mood && <span className="tile__cond">Сейчас</span>}
             </div>

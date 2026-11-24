@@ -1,191 +1,242 @@
-import { useEffect, useRef, useState } from "react";
-import { computeMood, DEMO_HISTORY, DOG, FAMILY, RULES, TASKS, type Task } from "./demo";
-import { useToday } from "./useToday";
-import { useTheme, type ThemeMode } from "./theme";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api, ApiError, liveModeAvailable, type ServerState } from "./api";
+import { DEMO_DOG, DEMO_FAMILY, DEMO_POINTS_BEFORE, DEMO_TASKS, demoHistory } from "./demo";
+import { isoDate, RULES, type Task } from "./rules";
 import { currentUserName, haptic } from "./telegram";
-import { Icon, type IconName } from "./components/Icon";
-import { Avatar } from "./components/Avatar";
-import { PetStage, MOOD_IMAGES } from "./components/PetStage";
-import { StreakCard } from "./components/StreakCard";
-import { TaskList } from "./components/TaskList";
-import { StyleCard } from "./components/StyleCard";
+import { useTheme } from "./theme";
+import { useDemoDone, useNow } from "./useToday";
+import { AddDogScreen } from "./screens/AddDogScreen";
+import { TodayScreen } from "./screens/TodayScreen";
 
-const SOON = "Появится на следующем этапе";
+type Theme = ReturnType<typeof useTheme>;
+type Toast = (text: string) => void;
 
 export default function App() {
   const theme = useTheme();
-  const { now, done, complete, undo } = useToday();
-  const [joyKey, setJoyKey] = useState(0);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const { toast, show } = useToast();
-
-  const doneCount = TASKS.filter((t) => done[t.id]).length;
-  const mood = computeMood(TASKS, done, now);
-  const streak = DEMO_HISTORY.streakBefore + (doneCount >= RULES.dailyGoal ? 1 : 0);
-  const points = DEMO_HISTORY.pointsBefore + Math.min(doneCount, RULES.maxPointsPerDay) * RULES.pointsPerTask;
-
-  const toggle = (task: Task) => {
-    if (done[task.id]) {
-      undo(task.id);
-      haptic.tap();
-      show(`Отметка снята: «${task.title}» снова в работе`);
-      return;
-    }
-    complete(task.id, currentUserName());
-    haptic.success();
-    setJoyKey((k) => k + 1);
-    const nextDone = doneCount + 1;
-    const nextPoints = DEMO_HISTORY.pointsBefore + Math.min(nextDone, RULES.maxPointsPerDay);
-    if (points < RULES.firstItemPoints && nextPoints >= RULES.firstItemPoints) show("🎁 Новая вещь для Бони: панама!");
-    else if (nextDone === RULES.dailyGoal) show(`Цель дня выполнена! Серия семьи: ${streak + 1} дней`);
-    else show(`Готово: ${task.title.toLowerCase()} · ${DOG.name} рада!`);
-  };
-
-  const dateLabel = now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
-
   return (
     <div className="app">
-      <header className="topbar">
-        <button type="button" className="dog-pill" onClick={() => show("Вторая собака — на следующем этапе")}>
-          <img src={MOOD_IMAGES.calm} alt="" className="dog-pill__img" />
-          {DOG.name}
-          <Icon name="chevronDown" size={16} />
-        </button>
-        <button type="button" className="family-stack" onClick={() => setSheetOpen(true)} aria-label="Семья и настройки">
-          {FAMILY.map((m) => (
-            <Avatar key={m.id} member={m} size={34} />
-          ))}
-        </button>
-      </header>
-
-      <main className="content">
-        <div className="hero-title">
-          <h1>Сегодня</h1>
-          <p className="muted">{capitalize(dateLabel)}</p>
-        </div>
-
-        <PetStage mood={mood} name={DOG.name} joyKey={joyKey} />
-        <p className="stage-caption">Настроение персонажа — реакция на отметки семьи</p>
-
-        <StreakCard streak={streak} doneCount={doneCount} now={now} onOpen={() => show(`«Регулярность»: ${SOON.toLowerCase()}`)} />
-
-        <h2 className="section-title">Задачи на сегодня</h2>
-        <TaskList tasks={TASKS} done={done} now={now} onToggle={toggle} />
-
-        <button type="button" className="btn-primary" onClick={() => show(`Добавление задач: ${SOON.toLowerCase()}`)}>
-          <Icon name="plus" size={20} /> Добавить задачу
-        </button>
-
-        <h2 className="section-title">Стиль {DOG.name === "Боня" ? "Бони" : DOG.name}</h2>
-        <StyleCard dogName={DOG.name} points={points} mood={mood} onToast={show} />
-      </main>
-
-      <BottomNav onSoon={(label) => show(`«${label}»: ${SOON.toLowerCase()}`)} />
-
+      {liveModeAvailable() ? <LiveApp theme={theme} toast={show} /> : <DemoApp theme={theme} toast={show} />}
       {toast && (
         <div className="toast" role="status" key={toast.id}>
           {toast.text}
         </div>
       )}
-
-      {sheetOpen && <SettingsSheet mode={theme.mode} onMode={theme.setMode} onClose={() => setSheetOpen(false)} />}
     </div>
   );
 }
 
-const NAV: { label: string; icon: IconName }[] = [
-  { label: "Сегодня", icon: "calendar" },
-  { label: "Задачи", icon: "tasks" },
-  { label: "Питомец", icon: "paw" },
-  { label: "Карта", icon: "mapPin" },
-];
+/* ---------------- Живой режим: данные семьи с сервера ---------------- */
 
-function BottomNav({ onSoon }: { onSoon: (label: string) => void }) {
-  return (
-    <nav className="nav" aria-label="Разделы">
-      {NAV.map((n, i) => (
-        <button
-          key={n.label}
-          type="button"
-          className={`nav__item ${i === 0 ? "is-active" : ""}`}
-          aria-current={i === 0 ? "page" : undefined}
-          onClick={() => (i === 0 ? window.scrollTo({ top: 0, behavior: "smooth" }) : onSoon(n.label))}
-        >
-          <span className="nav__icon">
-            <Icon name={n.icon} size={22} />
-          </span>
-          {n.label}
+const SELECTED_KEY = "syncra:selected-dog";
+
+function LiveApp({ theme, toast }: { theme: Theme; toast: Toast }) {
+  const [state, setState] = useState<ServerState | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(() => safeGet(SELECTED_KEY));
+  const [pending, setPending] = useState<Set<string>>(new Set());
+  const [joyKey, setJoyKey] = useState(0);
+  const [now] = useNow();
+
+  const load = useCallback(() => {
+    setLoadError(null);
+    api
+      .session()
+      .then(setState)
+      .catch((e) => setLoadError(e instanceof ApiError ? e.message : "Не удалось загрузить данные"));
+  }, []);
+
+  useEffect(load, [load]);
+
+  // Вернулись в приложение — подтягиваем отметки других членов семьи.
+  useEffect(() => {
+    const onVisible = () => document.visibilityState === "visible" && api.session().then(setState).catch(() => {});
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
+  const selectDog = (id: string) => {
+    setSelectedId(id);
+    safeSet(SELECTED_KEY, id);
+  };
+
+  if (!state) {
+    return loadError ? (
+      <div className="center-screen">
+        <p>{loadError}</p>
+        <button type="button" className="btn-primary" onClick={load}>
+          Повторить
         </button>
-      ))}
-    </nav>
-  );
-}
-
-const MODES: { id: ThemeMode; label: string }[] = [
-  { id: "telegram", label: "Как в Telegram" },
-  { id: "light", label: "Светлая" },
-  { id: "dark", label: "Тёмная" },
-];
-
-const ROLE_LABEL = { owner: "Владелец", member: "Участник", limited: "Ограниченный" } as const;
-
-function SettingsSheet({ mode, onMode, onClose }: { mode: ThemeMode; onMode: (m: ThemeMode) => void; onClose: () => void }) {
-  return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-label="Семья и настройки" onClick={(e) => e.stopPropagation()}>
-        <div className="sheet__handle" />
-        <div className="sheet__head">
-          <h2>Семья и настройки</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
-            <Icon name="x" size={20} />
-          </button>
-        </div>
-
-        <h3 className="sheet__label">Тема</h3>
-        <div className="segmented" role="radiogroup" aria-label="Тема">
-          {MODES.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              role="radio"
-              aria-checked={mode === m.id}
-              className="segmented__item"
-              onClick={() => {
-                haptic.select();
-                onMode(m.id);
-              }}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-
-        <h3 className="sheet__label">Семья</h3>
-        <ul className="members">
-          {FAMILY.map((m) => (
-            <li key={m.id} className="members__row">
-              <Avatar member={m} size={36} />
-              <span className="members__name">{m.name}</span>
-              <span className="members__role">{ROLE_LABEL[m.role]}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="muted small">Приглашения, роли и уведомления — на следующих этапах.</p>
       </div>
-    </div>
+    ) : (
+      <div className="center-screen">
+        <span className="spinner" aria-label="Загрузка" />
+      </div>
+    );
+  }
+
+  if (!state.dogs.length || adding) {
+    return (
+      <AddDogScreen
+        firstDog={!state.dogs.length}
+        onCancel={state.dogs.length ? () => setAdding(false) : undefined}
+        onCreated={(s) => {
+          setState(s);
+          setAdding(false);
+          if (s.createdDogId) selectDog(s.createdDogId);
+          window.scrollTo({ top: 0 });
+          toast("Собака добавлена! 🐾");
+        }}
+      />
+    );
+  }
+
+  const dog = state.dogs.find((d) => d.id === selectedId) ?? state.dogs[0];
+  const today = state.today ?? isoDate(now);
+  const familyDoneToday = Object.keys(state.done).length;
+
+  const toggle = async (task: Task) => {
+    const wasDone = Boolean(state.done[task.id]);
+    const prev = state.done[task.id];
+    // Сразу показываем отметку, а сервер подтверждает её в фоне.
+    setState((s) => {
+      if (!s) return s;
+      const done = { ...s.done };
+      if (wasDone) delete done[task.id];
+      else done[task.id] = { by: s.me?.name ?? currentUserName(), at: Date.now() };
+      return { ...s, done };
+    });
+    setPending((p) => new Set(p).add(task.id));
+    if (!wasDone) {
+      haptic.success();
+      setJoyKey((k) => k + 1);
+    } else haptic.tap();
+    try {
+      const next = await (wasDone ? api.undo(task.id) : api.complete(task.id));
+      setState(next);
+      if (wasDone) toast(`Отметка снята: «${task.title}» снова в работе`);
+      else toast(Object.keys(next.done).length === (next.family?.dailyGoal ?? RULES.dailyGoal) ? "Цель дня выполнена! 🎉" : `Готово: ${task.title.toLowerCase()}`);
+    } catch (e) {
+      setState((s) => {
+        if (!s) return s;
+        const done = { ...s.done };
+        if (prev) done[task.id] = prev;
+        else delete done[task.id];
+        return { ...s, done };
+      });
+      toast(e instanceof ApiError ? e.message : "Не сохранено — попробуйте ещё раз");
+    } finally {
+      setPending((p) => {
+        const n = new Set(p);
+        n.delete(task.id);
+        return n;
+      });
+    }
+  };
+
+  return (
+    <TodayScreen
+      dog={dog}
+      dogs={state.dogs}
+      members={state.members}
+      tasks={state.tasks.filter((t) => t.dogId === dog.id)}
+      done={state.done}
+      pending={pending}
+      now={now}
+      today={today}
+      history={{ ...state.history, [today]: familyDoneToday }}
+      goal={state.family?.dailyGoal ?? RULES.dailyGoal}
+      points={state.points[dog.id] ?? 0}
+      joyKey={joyKey}
+      onToggle={toggle}
+      onSelectDog={selectDog}
+      onAddDog={() => {
+        setAdding(true);
+        window.scrollTo({ top: 0 });
+      }}
+      toast={toast}
+      theme={theme}
+    />
   );
 }
+
+/* ---------------- Демо-режим: Боня, всё хранится на устройстве ---------------- */
+
+function DemoApp({ theme, toast }: { theme: Theme; toast: Toast }) {
+  const [now] = useNow();
+  const { done, complete, undo } = useDemoDone(now);
+  const [joyKey, setJoyKey] = useState(0);
+  const today = isoDate(now);
+  const doneCount = DEMO_TASKS.filter((t) => done[t.id]).length;
+  const points = DEMO_POINTS_BEFORE + Math.min(doneCount, RULES.maxPointsPerDay);
+
+  const toggle = (task: Task) => {
+    if (done[task.id]) {
+      undo(task.id);
+      haptic.tap();
+      toast(`Отметка снята: «${task.title}» снова в работе`);
+      return;
+    }
+    complete(task.id, currentUserName());
+    haptic.success();
+    setJoyKey((k) => k + 1);
+    const nextPoints = DEMO_POINTS_BEFORE + Math.min(doneCount + 1, RULES.maxPointsPerDay);
+    if (points < RULES.firstItemPoints && nextPoints >= RULES.firstItemPoints) toast("🎁 Новая вещь для Бони: панама!");
+    else if (doneCount + 1 === RULES.dailyGoal) toast("Цель дня выполнена! 🎉");
+    else toast(`Готово: ${task.title.toLowerCase()} · Боня рада!`);
+  };
+
+  return (
+    <TodayScreen
+      dog={DEMO_DOG}
+      dogs={[DEMO_DOG]}
+      members={DEMO_FAMILY}
+      tasks={DEMO_TASKS}
+      done={done}
+      now={now}
+      today={today}
+      history={demoHistory(today, doneCount)}
+      goal={RULES.dailyGoal}
+      points={points}
+      joyKey={joyKey}
+      onToggle={toggle}
+      onSelectDog={() => {}}
+      onAddDog={() => toast("Чтобы добавить свою собаку, откройте приложение из бота в Telegram")}
+      toast={toast}
+      theme={theme}
+      demo
+    />
+  );
+}
+
+/* ---------------- Мелочи ---------------- */
 
 function useToast() {
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const timer = useRef<number>();
   useEffect(() => () => window.clearTimeout(timer.current), []);
-  const show = (text: string) => {
+  const show = useCallback((text: string) => {
     window.clearTimeout(timer.current);
     setToast({ id: Date.now(), text });
     timer.current = window.setTimeout(() => setToast(null), 2600);
-  };
+  }, []);
   return { toast, show };
 }
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+function safeGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* не страшно */
+  }
+}
+

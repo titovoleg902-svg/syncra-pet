@@ -1,4 +1,4 @@
-import type { Member } from "../demo";
+import type { Member } from "../rules";
 
 /** Кружок с первой буквой имени. Позже — фото из Telegram. */
 export function Avatar({ member, size = 28 }: { member: Pick<Member, "name" | "color">; size?: number }) {
