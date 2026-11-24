@@ -1,0 +1,15 @@
+# Секреты
+.env
+.env.*
+!.env.example
+
+# Зависимости и сборка
+node_modules/
+dist/
+
+# Системное
+.DS_Store
+*.log
+
+# Локальные инструменты (cloudflared)
+.tools/

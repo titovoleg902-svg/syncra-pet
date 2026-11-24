@@ -1,0 +1,21 @@
+{
+  "name": "syncra-pet",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Syncra PET — семейный трекер ухода за собакой: Telegram-бот + Mini App",
+  "workspaces": [
+    "bot",
+    "webapp"
+  ],
+  "scripts": {
+    "dev:bot": "npm run dev -w bot",
+    "dev:web": "npm run dev -w webapp",
+    "phone": "npm run build -w webapp && npm run preview -w webapp",
+    "tunnel": "ssh -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -R 80:localhost:5173 serveo.net",
+    "build": "npm run build -w webapp && npm run build -w bot",
+    "typecheck": "npm run typecheck -w bot && npm run typecheck -w webapp"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
