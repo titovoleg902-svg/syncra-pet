@@ -2,7 +2,10 @@
  * Типы и правила ТЗ — общие для демо-режима и для настоящих данных с сервера.
  */
 
-export type Category = "feed" | "walk" | "play" | "health" | "custom";
+import type { DogLook } from "./components/CartoonDog";
+import type { ItemId } from "./components/Accessories";
+
+export type Category ="feed" | "walk" | "play" | "health" | "custom";
 export type Role = "owner" | "member" | "limited";
 export type Mood = "calm" | "happy" | "bored";
 
@@ -38,7 +41,16 @@ export interface Dog {
   ageYears?: number | null;
   weightKg?: number | null;
   sex?: "male" | "female" | null;
+  notes?: string | null;
+  /** Внешность векторного двойника (null — ещё не создан) */
+  look?: DogLook | null;
+  /** Сколько раз двойник создавался по фото (ТЗ: первая генерация + 2 повтора) */
+  lookAttempts?: number;
+  equipped?: ItemId | null;
+  unlocked?: ItemId[];
 }
+
+export const MAX_LOOK_ATTEMPTS = 3;
 
 /** Правила из ТЗ. Позже — в настройках проекта. */
 export const RULES = {

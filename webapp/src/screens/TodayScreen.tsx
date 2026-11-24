@@ -2,12 +2,13 @@ import { useState } from "react";
 import { computeMood, familyProgress, type Completion, type Dog, type Member, type Task } from "../rules";
 import type { ThemeMode } from "../theme";
 import { haptic } from "../telegram";
-import { Icon, type IconName } from "../components/Icon";
+import { Icon } from "../components/Icon";
 import { Avatar } from "../components/Avatar";
 import { PetStage, MOOD_IMAGES } from "../components/PetStage";
 import { StreakCard } from "../components/StreakCard";
 import { TaskList } from "../components/TaskList";
-import { StyleCard } from "../components/StyleCard";
+import { CartoonDog } from "../components/CartoonDog";
+import { ItemIcon } from "../components/Accessories";
 
 const SOON = "появится на следующем этапе";
 
@@ -30,6 +31,8 @@ export interface TodayProps {
   onToggle: (task: Task) => void;
   onSelectDog: (id: string) => void;
   onAddDog: () => void;
+  onCreateCharacter?: () => void;
+  onOpenPet: () => void;
   toast: (text: string) => void;
   theme: { mode: ThemeMode; setMode: (m: ThemeMode) => void };
   demo?: boolean;
@@ -62,7 +65,7 @@ export function TodayScreen(p: TodayProps) {
           <p className="muted">{dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}</p>
         </div>
 
-        <PetStage dog={p.dog} mood={mood} joyKey={p.joyKey} />
+        <PetStage dog={p.dog} mood={mood} joyKey={p.joyKey} onCreateCharacter={p.onCreateCharacter} />
         <p className="stage-caption">Настроение персонажа — реакция на отметки семьи</p>
 
         <StreakCard streak={streak} doneCount={doneToday} goal={p.goal} week={week} onOpen={() => p.toast(`Экран «Регулярность» ${SOON}`)} />
@@ -74,11 +77,15 @@ export function TodayScreen(p: TodayProps) {
           <Icon name="plus" size={20} /> Добавить задачу
         </button>
 
-        <h2 className="section-title">Стиль питомца</h2>
-        <StyleCard dog={p.dog} points={p.points} mood={mood} onToast={p.toast} />
+        <button type="button" className="card style-link" onClick={p.onOpenPet}>
+          <span className="style-link__art">{p.dog.equipped ? <ItemIcon id={p.dog.equipped} /> : <Icon name="gift" size={26} />}</span>
+          <span className="style-link__text">
+            <b>Стиль питомца</b>
+            <span className="muted small">Вещи, эмоции и награды</span>
+          </span>
+          <Icon name="chevronRight" size={18} />
+        </button>
       </main>
-
-      <BottomNav onSoon={(label) => p.toast(`Раздел «${label}» ${SOON}`)} />
 
       {sheet === "settings" && <SettingsSheet members={p.members} theme={p.theme} onClose={() => setSheet(null)} />}
       {sheet === "dogs" && (
@@ -121,6 +128,13 @@ export function TodayScreen(p: TodayProps) {
 }
 
 function DogThumb({ dog, size = 34 }: { dog: Dog; size?: number }) {
+  if (dog.look) {
+    return (
+      <span className="dog-thumb dog-thumb--svg" style={{ width: size, height: size }}>
+        <CartoonDog look={dog.look} mood="calm" animated={false} />
+      </span>
+    );
+  }
   const src = dog.cartoon ? MOOD_IMAGES.calm : dog.photoUrl;
   return src ? (
     <img src={src} alt="" className="dog-thumb" style={{ width: size, height: size }} />
@@ -128,34 +142,6 @@ function DogThumb({ dog, size = 34 }: { dog: Dog; size?: number }) {
     <span className="dog-thumb dog-thumb--empty" style={{ width: size, height: size }}>
       <Icon name="paw" size={size * 0.55} />
     </span>
-  );
-}
-
-const NAV: { label: string; icon: IconName }[] = [
-  { label: "Сегодня", icon: "calendar" },
-  { label: "Задачи", icon: "tasks" },
-  { label: "Питомец", icon: "paw" },
-  { label: "Карта", icon: "mapPin" },
-];
-
-function BottomNav({ onSoon }: { onSoon: (label: string) => void }) {
-  return (
-    <nav className="nav" aria-label="Разделы">
-      {NAV.map((n, i) => (
-        <button
-          key={n.label}
-          type="button"
-          className={`nav__item ${i === 0 ? "is-active" : ""}`}
-          aria-current={i === 0 ? "page" : undefined}
-          onClick={() => (i === 0 ? window.scrollTo({ top: 0, behavior: "smooth" }) : onSoon(n.label))}
-        >
-          <span className="nav__icon">
-            <Icon name={n.icon} size={22} />
-          </span>
-          {n.label}
-        </button>
-      ))}
-    </nav>
   );
 }
 

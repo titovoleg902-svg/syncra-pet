@@ -1,5 +1,7 @@
 import { getWebApp } from "./telegram";
 import type { Completion, Dog, Member, Role, Task } from "./rules";
+import type { DogLook } from "./components/CartoonDog";
+import type { ItemId } from "./components/Accessories";
 
 /** Адрес серверной функции. Задаётся при сборке (переменная VITE_API_URL). */
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "");
@@ -47,6 +49,9 @@ export const api = {
   session: () => call("session"),
   complete: (taskId: string) => postJson("complete", { taskId }),
   undo: (taskId: string) => postJson("undo", { taskId }),
+  saveLook: (dogId: string, look: DogLook, generated: boolean) => postJson("character", { dogId, look, generated }),
+  equip: (dogId: string, item: ItemId | null) => postJson("equip", { dogId, item }),
+  deleteDog: (dogId: string) => postJson("delete", { dogId }),
   createDog: (data: NewDog, photos: Blob[]) => {
     const form = new FormData();
     form.append("data", JSON.stringify(data));

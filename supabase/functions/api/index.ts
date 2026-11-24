@@ -118,7 +118,7 @@ async function loadState(user: TgUser) {
   const dogs = must(
     await db
       .from("dogs")
-      .select("id, name, breed, is_mixed, age_years, weight_kg, sex, notes, photo_paths")
+      .select("id, name, breed, is_mixed, age_years, weight_kg, sex, notes, photo_paths, character_look, character_attempts, equipped_item")
       .eq("family_id", family.id)
       .order("created_at"),
   );
@@ -176,6 +176,10 @@ async function loadState(user: TgUser) {
       sex: d.sex,
       notes: d.notes,
       photoUrl: d.photo_paths?.[0] ? urlOf.get(d.photo_paths[0]) ?? null : null,
+      look: d.character_look ?? null,
+      lookAttempts: d.character_attempts ?? 0,
+      equipped: d.equipped_item ?? null,
+      unlocked: unlockedItems(points[d.id] ?? 0, familyStreak(history, today, family.daily_goal)),
     })),
     tasks: tasks.map((t) => ({
       id: t.id,
@@ -190,6 +194,87 @@ async function loadState(user: TgUser) {
     points,
     today,
   };
+}
+
+/* ---------------- Вещи и персонаж ---------------- */
+
+const ITEM_IDS = ["panama", "bandana", "party-hat"] as const;
+// Пока идёт тестирование, все вещи открыты (ТЗ: пороги наград настраиваются в проекте).
+const UNLOCK_ALL = (Deno.env.get("UNLOCK_ALL_ITEMS") ?? "false") === "true";
+
+function familyStreak(history: Record<string, number>, today: string, goal: number): number {
+  let streak = (history[today] ?? 0) >= goal ? 1 : 0;
+  for (let d = shiftDate(today, -1); (history[d] ?? 0) >= goal; d = shiftDate(d, -1)) streak++;
+  return streak;
+}
+
+/** Панама — 10 очков (ТЗ: первый предмет за 10 очков), бандана — 3 дня серии, колпак — за приглашение (позже). */
+function unlockedItems(points: number, streak: number): string[] {
+  if (UNLOCK_ALL) return [...ITEM_IDS];
+  const out: string[] = [];
+  if (points >= 10) out.push("panama");
+  if (streak >= 3) out.push("bandana");
+  return out;
+}
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+function validLook(raw: unknown) {
+  // deno-lint-ignore no-explicit-any
+  const l = raw as any;
+  if (!l || typeof l !== "object") throw new HttpError(400, "Нет параметров внешности");
+  for (const k of ["base", "body", "light", "ear", "patternColor", "nose", "eye"]) {
+    if (typeof l[k] !== "string" || !HEX.test(l[k])) throw new HttpError(400, `Неверный цвет: ${k}`);
+  }
+  if (!["pointy", "floppy", "semi"].includes(l.earType)) throw new HttpError(400, "Неверный тип ушей");
+  if (!["none", "patch", "spots", "blaze"].includes(l.pattern)) throw new HttpError(400, "Неверный рисунок");
+  return {
+    base: l.base, body: l.body, light: l.light, ear: l.ear, earType: l.earType,
+    pattern: l.pattern, patternColor: l.patternColor, fluffy: Boolean(l.fluffy), nose: l.nose, eye: l.eye,
+  };
+}
+
+/** Собака из семьи пользователя (иначе 404). */
+async function dogInMyFamily(user: TgUser, dogId: unknown) {
+  const me = await myMember(user);
+  if (!me || typeof dogId !== "string") throw new HttpError(404, "Собака не найдена");
+  const dog = must(await db.from("dogs").select("id, family_id, photo_paths, character_attempts").eq("id", dogId).maybeSingle());
+  if (!dog || dog.family_id !== me.family_id) throw new HttpError(404, "Собака не найдена");
+  return { me, dog };
+}
+
+async function saveLook(user: TgUser, body: { dogId?: string; look?: unknown; generated?: boolean }) {
+  const { me, dog } = await dogInMyFamily(user, body.dogId);
+  if (me.role === "limited") throw new HttpError(403, "Менять внешность может владелец или участник");
+  const look = validLook(body.look);
+  must(
+    await db
+      .from("dogs")
+      .update({
+        character_look: look,
+        character_status: "ready",
+        character_attempts: body.generated ? (dog.character_attempts ?? 0) + 1 : dog.character_attempts,
+      })
+      .eq("id", dog.id),
+  );
+}
+
+async function equip(user: TgUser, body: { dogId?: string; item?: string | null }, state: Awaited<ReturnType<typeof loadState>>) {
+  await dogInMyFamily(user, body.dogId);
+  const item = body.item ?? null;
+  if (item !== null) {
+    const dog = state.dogs.find((d) => d.id === body.dogId);
+    if (!dog?.unlocked.includes(item)) throw new HttpError(403, "Эта вещь ещё не открыта");
+  }
+  must(await db.from("dogs").update({ equipped_item: item }).eq("id", body.dogId!));
+}
+
+/** Удаление собаки вместе с задачами, отметками и фото (ТЗ: «Предусмотрены удаление собаки»). */
+async function deleteDog(user: TgUser, body: { dogId?: string }) {
+  const { me, dog } = await dogInMyFamily(user, body.dogId);
+  if (me.role !== "owner") throw new HttpError(403, "Удалить собаку может только владелец семьи");
+  if (dog.photo_paths?.length) await db.storage.from(BUCKET).remove(dog.photo_paths);
+  must(await db.from("dogs").delete().eq("id", dog.id));
 }
 
 /* ---------------- Действия ---------------- */
@@ -321,6 +406,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     if (route === "complete") await complete(user, body);
     else if (route === "undo") await undo(user, body);
+    else if (route === "character") await saveLook(user, body);
+    else if (route === "equip") await equip(user, body, await loadState(user));
+    else if (route === "delete") await deleteDog(user, body);
     else throw new HttpError(404, "Неизвестный адрес");
     return json(await loadState(user));
   } catch (e) {

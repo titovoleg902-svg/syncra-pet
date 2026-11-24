@@ -61,6 +61,13 @@ export const haptic = {
   select: () => getWebApp()?.HapticFeedback?.selectionChanged(),
 };
 
+/** Окно подтверждения: в Telegram — родное, в браузере — обычное. */
+export function confirmDialog(message: string): Promise<boolean> {
+  const wa = getWebApp() as (ReturnType<typeof getWebApp> & { showConfirm?: (m: string, cb: (ok: boolean) => void) => void }) | undefined;
+  if (wa?.showConfirm && wa.isVersionAtLeast("6.2")) return new Promise((resolve) => wa.showConfirm!(message, resolve));
+  return Promise.resolve(window.confirm(message));
+}
+
 /** Красим шапку и фон Telegram в цвет приложения, чтобы не было «шва». */
 export function paintTelegramChrome(bg: string) {
   const wa = getWebApp();
